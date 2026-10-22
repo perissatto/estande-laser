@@ -5,7 +5,8 @@ Treino de tiro a seco com laser. A câmera do celular encontra o ponto vermelho 
 **Usar:** https://perissatto.github.io/estande-laser/ (entrar com a conta Google)
 
 - Ciclos configuráveis (quantidade e segundos), com bip de início e dois bips curtos no fim; tiros antes do bip (A) ou depois do fim (T) não pontuam.
-- Calibração automática pelo alvo iTarget BullsEye: os 4 triângulos corrigem a perspectiva. Outros alvos ISSF com calibração por toque.
+- 4 alvos para imprimir (pasta `alvos/`): BullsEye, Quick Draw (cabeça e tronco), Duelo (J1 × J2) e High Score (5 discos). Os PDFs podem ser baixados direto no site.
+- Calibração automática pelos 4 triângulos, que ficam na mesma posição em todos os alvos e corrigem a perspectiva; marcação manual por toque como alternativa.
 - Zoom óptico da câmera quando o aparelho permite; zoom digital nos demais.
 - Modos: Câmera ao vivo, Vídeo gravado (os bips são detectados no áudio) e Simulação.
 - Ranking on-line (Firebase): precisão (média por tiro), reação média e volume de tiros.
