@@ -45,14 +45,26 @@ header{display:flex;align-items:flex-end;justify-content:space-between;gap:12px;
 .col{display:flex;flex-direction:column;gap:12px;min-width:0}
 
 /* Timer */
-.readout{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:12px 16px 10px;display:grid;grid-template-columns:1fr auto;align-items:center;gap:4px 16px}
+.readout{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:12px 16px 10px;display:grid;grid-template-columns:auto auto 1fr;align-items:end;gap:4px 18px}
+.readout .phase{grid-column:1/-1}
+.lastpts{display:flex;flex-direction:column;align-items:flex-start;gap:2px;padding-left:18px;border-left:1px solid var(--line);min-width:0}
+.lastpts span{font-size:11px;letter-spacing:.1em;text-transform:uppercase;font-weight:700;font-stretch:80%;color:var(--muted)}
+.lastpts b{font-family:var(--f-num);font-weight:600;font-size:clamp(40px,11vw,64px);line-height:1;font-variant-numeric:tabular-nums;color:var(--fg)}
+.lastpts small{font-family:var(--f-num);font-size:12px;color:var(--muted);min-height:1.2em;white-space:nowrap}
+.lastpts.bad b{color:var(--hit)}
+.lastpts.flash b{animation:flash .6s ease-out}
+@keyframes flash{0%{color:var(--hit);transform:scale(1.12)}100%{transform:scale(1)}}
+.topctl{display:flex;gap:8px}
+.topctl .btn.primary{flex:1 1 auto}
+.calrow{display:flex;gap:8px;flex-wrap:wrap}
 .phase{font-stretch:80%;font-weight:700;letter-spacing:.12em;text-transform:uppercase;font-size:13px;color:var(--muted);display:flex;align-items:center;gap:8px}
 .phase .dot{width:9px;height:9px;border-radius:50%;background:var(--line)}
 .readout[data-phase="standby"] .dot,.readout[data-phase="rest"] .dot{background:var(--amber);animation:blink .6s steps(2) infinite}
 .readout[data-phase="running"] .dot{background:var(--ok)}
 .readout[data-phase="running"] .phase{color:var(--ok)}
-.big{font-family:var(--f-num);font-weight:600;font-size:clamp(48px,13vw,76px);line-height:1;letter-spacing:-.02em;font-variant-numeric:tabular-nums;color:var(--amber);grid-column:1}
-.readout .side{grid-column:2;grid-row:1/span 2;text-align:right;font-family:var(--f-num);font-size:13px;color:var(--muted);display:flex;flex-direction:column;gap:4px;font-variant-numeric:tabular-nums}
+.big{font-family:var(--f-num);font-weight:600;font-size:clamp(48px,13vw,76px);line-height:1;letter-spacing:-.02em;font-variant-numeric:tabular-nums;color:var(--amber)}
+@media (max-width:520px){.readout{grid-template-columns:auto 1fr}.readout .side{grid-column:1/-1;justify-self:stretch;flex-direction:row!important;justify-content:space-between;text-align:left!important}}
+.readout .side{justify-self:end;text-align:right;font-family:var(--f-num);font-size:13px;color:var(--muted);display:flex;flex-direction:column;gap:4px;font-variant-numeric:tabular-nums}
 .readout .side b{color:var(--fg);font-weight:600}
 .bar{grid-column:1/-1;height:6px;border-radius:3px;background:var(--panel-2);overflow:hidden;margin-top:6px}
 .bar i{display:block;height:100%;width:0;background:var(--ok);transition:width .1s linear}
@@ -217,12 +229,19 @@ details[open].card summary::after{content:" –"}
       <div class="readout" id="readout" data-phase="idle">
         <div class="phase"><span class="dot"></span><span id="phaseLbl">Pronto</span></div>
         <div class="big" id="big">0.00</div>
+        <div class="lastpts" id="lastBox"><span>Último tiro</span><b id="lastPts">—</b><small id="lastTag">&nbsp;</small></div>
         <div class="side">
           <span>Ciclo <b id="sCycle">—</b></span>
           <span>Tiros <b id="sCount">0</b></span>
-          <span>Último <b id="sLast">—</b></span>
+          <span>Tempo <b id="sLast">—</b></span>
         </div>
         <div class="bar"><i id="barFill"></i></div>
+      </div>
+
+      <div class="topctl">
+        <button class="btn primary" id="startBtn">Iniciar treino</button>
+        <button class="btn stop" id="stopBtn" disabled>Parar</button>
+        <button class="btn" id="clearBtn">Limpar</button>
       </div>
 
       <div class="targets" role="group" aria-label="Alvo">
@@ -264,11 +283,8 @@ details[open].card summary::after{content:" –"}
         <small id="zoomKind"></small>
       </div>
 
-      <div class="controls">
-        <button class="btn primary" id="startBtn">Iniciar treino</button>
-        <button class="btn stop" id="stopBtn" disabled>Parar</button>
+      <div class="calrow">
         <button class="btn" id="calibBtn">Calibrar alvo</button>
-        <button class="btn" id="clearBtn">Limpar tiros</button>
       </div>
 
       <div class="note" id="calNote" hidden>
@@ -707,6 +723,13 @@ function render(){
   $('#sCycle').textContent=sess?sess.k+'/'+sess.n:(+S.cycles||1)+'×'+fmtNum(+S.dur||0,1)+'s';
   $('#sCount').textContent=shots.length;
   const lastT=[...shots].reverse().find(s=>s.t!=null&&s.st==='ok');$('#sLast').textContent=lastT?fmtT(lastT.t):'—';
+  const ls=shots[shots.length-1],lb=$('#lastBox');
+  if(!ls){$('#lastPts').textContent='—';$('#lastTag').textContent='\u00a0';lb.classList.remove('bad')}
+  else{const out=ls.st==='antes'||ls.st==='tarde';
+    $('#lastPts').textContent=ls.n==null?'—':ls.n===0?'M':ptsOf(ls);
+    $('#lastTag').textContent=ls.st==='antes'?'antes do bip · 0':ls.st==='tarde'?'após o fim · 0':ls.n==null?'sem calibração':ls.n===0?'fora do alvo':(ls.tag&&P().zones.length>1?ls.tag:'')+(ls.t!=null&&ls.st==='ok'?(ls.tag&&P().zones.length>1?' · ':'')+fmtT(ls.t)+' s':'')||'\u00a0';
+    lb.classList.toggle('bad',out||ls.n===0);
+    if(lb.dataset.n!==String(shots.length)){lb.dataset.n=String(shots.length);if(!example){lb.classList.remove('flash');void lb.offsetWidth;lb.classList.add('flash')}}}
   $('#startBtn').disabled=!!sess||analyzing||(mode==='video'&&!videoReady);
   $('#startBtn').textContent=mode==='video'?(analyzing?'Analisando…':'Analisar vídeo'):'Iniciar treino';
   $('#stopBtn').disabled=!sess&&!analyzing;
