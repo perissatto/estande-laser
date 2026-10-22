@@ -80,6 +80,11 @@ header{display:flex;align-items:flex-end;justify-content:space-between;gap:12px;
 .btn.primary{background:var(--amber);color:var(--amber-ink);border-color:var(--amber);text-transform:uppercase;letter-spacing:.08em;flex:1 1 180px;font-size:16px}
 .btn.stop{background:transparent;border-color:var(--hit);color:var(--hit)}
 .btn.small{min-height:36px;padding:6px 11px;font-size:14px}
+.camrow{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.camrow label{display:flex;align-items:center;gap:8px;flex:1 1 220px;min-width:0}
+.camrow label span{font-size:12px;letter-spacing:.08em;text-transform:uppercase;font-weight:600;color:var(--muted);font-stretch:85%}
+.camrow select{flex:1;min-width:0;background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:8px;font-size:14px}
+.camrow .btn{margin-left:auto}
 .zoomrow{display:flex;align-items:center;gap:10px;background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:8px 12px}
 .zoomrow label{font-size:12px;letter-spacing:.08em;text-transform:uppercase;font-weight:600;color:var(--muted);font-stretch:85%}
 .zoomrow input{flex:1;min-width:0;accent-color:var(--amber)}
@@ -247,6 +252,11 @@ details[open].card summary::after{content:" –"}
         <div class="hint" id="hint" hidden></div>
       </div>
 
+      <div class="camrow" id="camRow" hidden>
+        <label><span>Câmera</span><select id="camSel" aria-label="Câmera"></select></label>
+        <button class="btn small" id="camReset">Reiniciar câmera</button>
+      </div>
+
       <div class="zoomrow" id="zoomRow" hidden>
         <label for="zoom">Zoom</label>
         <input type="range" id="zoom" min="1" max="4" step="0.1" value="1">
@@ -333,6 +343,7 @@ details[open].card summary::after{content:" –"}
           <label>Espera máx. antes do bip (s)<input type="number" id="s-dmax" data-k="dmax" min="0" max="15" step="0.5"></label>
           <label>Tom do bip (Hz)<input type="number" id="s-freq" data-k="freq" min="500" max="5000" step="100"></label>
           <label>Volume do bip (%)<input type="number" id="s-vol" data-k="vol" min="5" max="100" step="5"></label>
+          <label class="full inline"><input type="checkbox" id="s-shotSound" data-k="shotSound"> Som de tiro quando o laser for detectado (só durante o treino)</label>
           <div class="sec">Detecção</div>
           <label class="full">Sensibilidade do detector: <span id="sensVal"></span><input type="range" id="s-sens" data-k="sens" min="1" max="10" step="1"></label>
           <label>Latência da câmera (ms)<input type="number" id="s-lat" data-k="lat" min="0" max="300" step="5"></label>
@@ -517,7 +528,7 @@ function scoreOf(x,y){
     if(!best||s.n>best.n||(s.n===best.n&&s.dist<best.dist))best=s});
   return best;
 }
-const DEF={preset:'bullseye',cycles:5,dur:3,dmin:2,dmax:4,freq:2800,vol:60,decimal:false,sens:6,lat:0};
+const DEF={shotSound:true,preset:'bullseye',cycles:5,dur:3,dmin:2,dmax:4,freq:2800,vol:60,decimal:false,sens:6,lat:0};
 const S=Object.assign({},DEF,store.get('el_set2',{}));
 if(S.preset==='itarget')S.preset='bullseye';
 if(!PRESETS[S.preset])S.preset='bullseye';
@@ -600,7 +611,19 @@ function assign(t){
 function scoreShot(s){const cal=getCalib(),mm=toModel(cal,s.x,s.y);
   if(!mm){s.mx=s.my=s.dx=s.dy=null;s.n=null;s.dec=null;s.tag='';return}
   const sc=scoreOf(mm[0],mm[1]);s.mx=mm[0];s.my=mm[1];s.dx=sc.dx;s.dy=sc.dy;s.n=sc.n;s.dec=sc.d;s.tag=sc.n?sc.tag:''}
+let noiseBuf=null;
+function shotSound(){
+  if(!S.shotSound||!audioCtx)return;const a=audioCtx,t=a.currentTime+.005,v=clamp(+S.vol||60,5,100)/100;
+  if(!noiseBuf){const n=Math.floor(a.sampleRate*.6);noiseBuf=a.createBuffer(1,n,a.sampleRate);const d=noiseBuf.getChannelData(0);for(let i=0;i<n;i++)d[i]=Math.random()*2-1}
+  const src=a.createBufferSource();src.buffer=noiseBuf;
+  const lp=a.createBiquadFilter();lp.type='lowpass';lp.frequency.setValueAtTime(6000,t);lp.frequency.exponentialRampToValueAtTime(700,t+.25);
+  const g=a.createGain();g.gain.setValueAtTime(0,t);g.gain.linearRampToValueAtTime(.9*v,t+.002);g.gain.exponentialRampToValueAtTime(.25*v,t+.05);g.gain.exponentialRampToValueAtTime(.001,t+.5);
+  src.connect(lp).connect(g).connect(a.destination);src.start(t);src.stop(t+.55);
+  const o=a.createOscillator(),og=a.createGain();o.type='sine';o.frequency.setValueAtTime(140,t);o.frequency.exponentialRampToValueAtTime(45,t+.18);
+  og.gain.setValueAtTime(.8*v,t);og.gain.exponentialRampToValueAtTime(.001,t+.22);o.connect(og).connect(a.destination);o.start(t);o.stop(t+.25);
+}
 function registerShot(x,y,t){
+  if(sess&&sess.live)shotSound();
   if(example){shots=[];example=false}
   const a=sess?assign(t):{cyc:null,st:'livre',t:null};
   const idx=a.cyc?shots.filter(s=>s.cyc===a.cyc).length+1:0;
@@ -788,27 +811,78 @@ function processFrame(src,t){
 }
 
 /* ---------- câmera ---------- */
-async function startCamera(){
-  const err=$('#camErr');err.hidden=true;$('#camNote').classList.remove('warn');
-  if(!navigator.mediaDevices||!navigator.mediaDevices.getUserMedia){camFail('Este navegador não oferece acesso à câmera.');return}
-  try{stream=await navigator.mediaDevices.getUserMedia({audio:false,video:{facingMode:{ideal:'environment'},width:{ideal:1920},height:{ideal:1080},frameRate:{ideal:60}}})}
-  catch(e){camFail(e&&e.name==='NotAllowedError'?'O acesso à câmera foi bloqueado. Libere a câmera para este site nas configurações do navegador.':'A câmera não abriu ('+(e&&e.name||'erro')+').');return}
-  track=stream.getVideoTracks()[0];
-  vid.srcObject=stream;vid.muted=true;
-  try{await vid.play()}catch(e){}
-  await new Promise(r=>{if(vid.videoWidth)r();else vid.onloadedmetadata=r});
-  camOn=true;resetRef();$('#empty').hidden=true;$('#detChip').hidden=false;$('#camBtn').textContent='Desligar câmera';
-  try{if(navigator.wakeLock)await navigator.wakeLock.request('screen')}catch(e){}
-  setupZoom();fitStage();
-  camLoop();render();
-  if(!calib.camera)calNote('Enquadre o alvo com os 4 triângulos e toque em Calibrar alvo.',[]);
+/* Configuração da câmera lembrada entre sessões: lente, resolução, zoom e enquadramento.
+   A calibração só é reaproveitada se lente, resolução e zoom forem os mesmos. */
+let camWanted=false,camStarting=false,wakeLock=null;
+const camCfg=Object.assign({deviceId:null,label:'',w:null,h:null,hwZoom:null,dz:null},store.get('el_cam',{}));
+function saveCam(){camCfg.dz={z:dz.z,cx:dz.cx,cy:dz.cy};store.set('el_cam',camCfg)}
+function camSig(){return[camCfg.deviceId||'',vid.videoWidth,vid.videoHeight,hwz.on?Math.round(hwz.v*100)/100:'d'].join('|')}
+async function openStream(deviceId){
+  const base={width:{ideal:1920},height:{ideal:1080},frameRate:{ideal:60}};
+  if(deviceId){try{return await navigator.mediaDevices.getUserMedia({audio:false,video:Object.assign({deviceId:{exact:deviceId}},base)})}catch(e){if(e&&e.name==='NotAllowedError')throw e}}
+  return navigator.mediaDevices.getUserMedia({audio:false,video:Object.assign({facingMode:{ideal:'environment'}},base)});
 }
+async function startCamera(){
+  if(camStarting)return;camStarting=true;camWanted=true;
+  const err=$('#camErr');err.hidden=true;$('#camNote').classList.remove('warn');
+  try{
+    if(!navigator.mediaDevices||!navigator.mediaDevices.getUserMedia){camFail('Este navegador não oferece acesso à câmera.');return}
+    if(stream){stream.getTracks().forEach(t=>t.stop());stream=null}
+    try{stream=await openStream(camCfg.deviceId)}
+    catch(e){camWanted=false;camFail(e&&e.name==='NotAllowedError'?'O acesso à câmera foi bloqueado. Libere a câmera para este site nas configurações do navegador.':'A câmera não abriu ('+(e&&e.name||'erro')+').');return}
+    track=stream.getVideoTracks()[0];
+    track.addEventListener('ended',onTrackLost);
+    let st={};try{st=track.getSettings()}catch(e){}
+    if(st.deviceId&&st.deviceId!==camCfg.deviceId){camCfg.deviceId=st.deviceId}
+    camCfg.label=track.label||'';
+    vid.srcObject=stream;vid.muted=true;
+    try{await vid.play()}catch(e){}
+    await new Promise(r=>{if(vid.videoWidth)r();else vid.onloadedmetadata=r});
+    // zoom óptico salvo
+    let caps={};try{caps=track.getCapabilities?track.getCapabilities():{}}catch(e){}
+    if(caps.zoom&&camCfg.hwZoom!=null){const z=clamp(camCfg.hwZoom,caps.zoom.min,caps.zoom.max);try{await track.applyConstraints({advanced:[{zoom:z}]})}catch(e){}}
+    camOn=true;resetRef();$('#empty').hidden=true;$('#detChip').hidden=false;$('#camBtn').textContent='Desligar câmera';$('#camRow').hidden=false;
+    keepAwake();
+    setupZoom();
+    if(!hwz.on&&camCfg.dz&&camCfg.w===vid.videoWidth&&camCfg.h===vid.videoHeight){dz.z=camCfg.dz.z||1;dz.cx=camCfg.dz.cx;dz.cy=camCfg.dz.cy;$('#zoom').value=dz.z;$('#zoomVal').textContent=fmtNum(dz.z,1)+'×'}
+    camCfg.w=vid.videoWidth;camCfg.h=vid.videoHeight;saveCam();
+    // calibração salva só vale para a mesma lente, resolução e zoom
+    if(calib.camera&&calib.camera.sig!==camSig()){calib.camera=null;store.set('el_calib4',null);calNote('A câmera abriu com outra lente, resolução ou zoom. Toque em Calibrar alvo de novo.',[],'warn')}
+    else if(!calib.camera)calNote('Enquadre o alvo com os 4 triângulos e toque em Calibrar alvo.',[]);
+    else calNote('Câmera retomada com a calibração anterior. Se o celular saiu do lugar, calibre de novo.',[['Calibrar de novo',startCalib]],'good');
+    fitStage();camLoop();render();listCameras();
+  }finally{camStarting=false}
+}
+function onTrackLost(){if(!camOn)return;camOn=false;$('#detChip').hidden=true;
+  if(document.visibilityState==='visible'&&camWanted){setTimeout(()=>{if(camWanted&&!camOn)startCamera()},400)}
+  else showEmpty('A câmera foi pausada pelo sistema. Ela volta sozinha quando você retornar ao app.')}
+document.addEventListener('visibilitychange',()=>{
+  if(document.visibilityState!=='visible')return;
+  if(camWanted&&mode==='camera'&&(!camOn||!track||track.readyState==='ended'||track.muted))startCamera();
+  if(camOn)keepAwake();
+});
+async function keepAwake(){try{if(navigator.wakeLock&&(!wakeLock||wakeLock.released))wakeLock=await navigator.wakeLock.request('screen')}catch(e){}}
+async function listCameras(){
+  const sel=$('#camSel');let devs=[];
+  try{devs=(await navigator.mediaDevices.enumerateDevices()).filter(d=>d.kind==='videoinput')}catch(e){}
+  sel.innerHTML='';
+  devs.forEach((d,i)=>{const o=document.createElement('option');o.value=d.deviceId;o.textContent=d.label||('Câmera '+(i+1));if(d.deviceId===camCfg.deviceId)o.selected=true;sel.appendChild(o)});
+  sel.parentElement.hidden=devs.length<2;
+}
+$('#camSel').addEventListener('change',e=>{camCfg.deviceId=e.target.value;camCfg.hwZoom=null;camCfg.dz=null;dz.z=1;dz.cx=dz.cy=null;saveCam();calib.camera=null;store.set('el_calib4',null);startCamera()});
+$('#camReset').addEventListener('click',()=>{
+  stopCamera();
+  Object.assign(camCfg,{deviceId:null,label:'',w:null,h:null,hwZoom:null,dz:null});store.set('el_cam',null);
+  calib.camera=null;store.set('el_calib4',null);dz.z=1;dz.cx=dz.cy=null;
+  calNote('Configuração da câmera apagada. Abrindo a câmera traseira padrão…',[]);
+  startCamera();
+});
 function camLoop(){
   if(!camOn)return;
   if(vid.requestVideoFrameCallback)vid.requestVideoFrameCallback((now,meta)=>{if(!camOn)return;processFrame(vid,(meta&&meta.captureTime?meta.captureTime:now)-(+S.lat||0));camLoop()});
   else requestAnimationFrame(()=>{if(!camOn)return;processFrame(vid,performance.now()-(+S.lat||0));camLoop()});
 }
-function stopCamera(){camOn=false;if(stream){stream.getTracks().forEach(t=>t.stop());stream=null;track=null}vid.srcObject=null;$('#camBtn').textContent='Ativar câmera';$('#detChip').hidden=true;hwz.on=false;$('#zoomRow').hidden=true}
+function stopCamera(user){camOn=false;if(user!==false)camWanted=false;if(stream){stream.getTracks().forEach(t=>t.stop());stream=null;track=null}vid.srcObject=null;$('#camBtn').textContent='Ativar câmera';$('#detChip').hidden=true;hwz.on=false;$('#zoomRow').hidden=true;$('#camRow').hidden=true;try{wakeLock&&wakeLock.release()}catch(e){}}
 function camFail(msg){
   const err=$('#camErr');err.hidden=false;err.textContent=msg;$('#camNote').classList.add('warn');showEmpty('Câmera indisponível. A aba Vídeo analisa uma gravação feita com o celular.');
 }
@@ -829,9 +903,9 @@ function setupZoom(){
 let zoomT=null;
 $('#zoom').addEventListener('input',e=>{
   const v=+e.target.value;$('#zoomVal').textContent=fmtNum(v,1)+'×';
-  if(hwz.on&&track){clearTimeout(zoomT);zoomT=setTimeout(()=>{track.applyConstraints({advanced:[{zoom:v}]}).catch(()=>{});hwz.v=v;
+  if(hwz.on&&track){clearTimeout(zoomT);zoomT=setTimeout(()=>{track.applyConstraints({advanced:[{zoom:v}]}).catch(()=>{});hwz.v=v;camCfg.hwZoom=v;saveCam();
       if(calib.camera){calib.camera=null;store.set('el_calib4',null);calNote('O zoom mudou a imagem. Toque em Calibrar alvo de novo.',[])}resetRef();render()},120)}
-  else{const cal=getCalib();if(dz.cx==null&&cal){const b=presetBox(P()),c=toImage(cal,(b[0]+b[2])/2,(b[1]+b[3])/2);dz.cx=c[0];dz.cy=c[1]}dz.z=v;resetRef();layoutMedia();render()}
+  else{const cal=getCalib();if(dz.cx==null&&cal){const b=presetBox(P()),c=toImage(cal,(b[0]+b[2])/2,(b[1]+b[3])/2);dz.cx=c[0];dz.cy=c[1]}dz.z=v;if(mode==='camera')saveCam();resetRef();layoutMedia();render()}
 });
 let drag=null;
 
@@ -844,7 +918,7 @@ function grabGray(maxW){
   const d=c.getImageData(0,0,W,H).data,G=new Uint8Array(W*H);for(let i=0,j=0;i<G.length;i++,j+=4)G[i]=(d[j]*77+d[j+1]*150+d[j+2]*29)>>8;
   return{G,W,H,v};
 }
-function setCalib(c){calib[mode]=c;if(mode==='camera')store.set('el_calib4',c);shots.forEach(scoreShot);resetRef();render()}
+function setCalib(c){if(mode==='camera')c.sig=camSig();calib[mode]=c;if(mode==='camera')store.set('el_calib4',c);shots.forEach(scoreShot);resetRef();render()}
 function autoCalib(){
   if(!srcSize().w)return false;
   for(const mw of [960,720,1280]){
@@ -881,7 +955,7 @@ ov.addEventListener('pointerdown',e=>{
   if(dz.z>1&&!hwz.on){const v=viewRect();drag={id:e.pointerId,x:e.clientX,y:e.clientY,cx:v.x+v.w/2,cy:v.y+v.h/2,s:m.s};ov.setPointerCapture(e.pointerId)}
 });
 ov.addEventListener('pointermove',e=>{if(!drag||e.pointerId!==drag.id)return;dz.cx=drag.cx-(e.clientX-drag.x)/drag.s;dz.cy=drag.cy-(e.clientY-drag.y)/drag.s;const v=viewRect();dz.cx=v.x+v.w/2;dz.cy=v.y+v.h/2;layoutMedia();drawOverlay()});
-ov.addEventListener('pointerup',()=>{if(drag){drag=null;resetRef()}});
+ov.addEventListener('pointerup',()=>{if(drag){drag=null;resetRef();if(mode==='camera')saveCam()}});
 ov.addEventListener('pointercancel',()=>{drag=null});
 
 /* ---------- vídeo gravado ---------- */
