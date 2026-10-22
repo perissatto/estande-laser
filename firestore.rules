@@ -8,5 +8,11 @@ service cloud.firestore {
     match /users/{uid}/sessions/{sid} {
       allow read, write: if request.auth != null && request.auth.uid == uid;
     }
+    // Treinos da comunidade: qualquer visitante lê; cada pessoa publica e apaga só os próprios
+    match /feed/{id} {
+      allow read: if true;
+      allow create: if request.auth != null && request.resource.data.uid == request.auth.uid;
+      allow delete: if request.auth != null && resource.data.uid == request.auth.uid;
+    }
   }
 }

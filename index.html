@@ -177,9 +177,38 @@ details[open].card summary::after{content:" –"}
 .help p{margin:0;color:var(--muted);font-size:13px;max-width:65ch}
 
 /* Tela de entrada */
-.gate{position:fixed;inset:0;z-index:50;background:var(--bg);display:flex;align-items:center;justify-content:center;
+.gate{position:fixed;inset:0;z-index:50;background:var(--bg);display:flex;align-items:flex-start;justify-content:center;
   padding:max(24px,env(safe-area-inset-top,0px)) max(16px,env(safe-area-inset-right,0px)) max(24px,env(safe-area-inset-bottom,0px)) max(16px,env(safe-area-inset-left,0px));overflow:auto}
-.gate .box{width:100%;max-width:420px;display:flex;flex-direction:column;gap:18px}
+.gatewrap{width:100%;max-width:1060px;margin:auto;display:grid;grid-template-columns:minmax(0,400px) minmax(0,1fr);gap:56px;align-items:start;padding-block:24px}
+@media (max-width:860px){.gatewrap{grid-template-columns:minmax(0,1fr);gap:32px}}
+.gate .box{width:100%;display:flex;flex-direction:column;gap:18px}
+.feed{display:flex;flex-direction:column;gap:12px;min-width:0}
+.feed h2{margin:0;font-stretch:80%;font-weight:700;font-size:14px;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap}
+.flist{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;border-top:1px solid var(--line)}
+.fitem{width:100%;display:grid;grid-template-columns:2em 32px minmax(0,1fr) auto;gap:12px;align-items:center;padding:10px 6px;border:0;border-bottom:1px solid var(--line);background:transparent;cursor:pointer;text-align:left}
+.fitem:hover{background:var(--panel)}
+.fitem .pos{font-family:var(--f-num);color:var(--muted);font-size:13px}
+.fitem .av{width:32px;height:32px}
+.fitem .who2{display:flex;flex-direction:column;min-width:0}
+.fitem .who2 b{font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.fitem .who2 small{color:var(--muted);font-size:12px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.fitem .sc{display:flex;flex-direction:column;align-items:flex-end}
+.fitem .sc b{font-family:var(--f-num);font-size:20px;font-weight:600;color:var(--amber);line-height:1.1}
+.fitem .sc small{font-family:var(--f-num);font-size:12px;color:var(--muted)}
+.hist .item{cursor:pointer;border-radius:6px}
+.hist .item:hover{background:var(--panel-2)}
+dialog.dlg{border:1px solid var(--line);border-radius:14px;background:var(--panel);color:var(--fg);padding:0;width:min(640px,calc(100vw - 24px));max-height:calc(100vh - 24px);overflow:auto}
+dialog.dlg::backdrop{background:rgba(8,7,6,.72)}
+.dlghead{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;padding:14px 16px;border-bottom:1px solid var(--line);position:sticky;top:0;background:var(--panel)}
+.dlghead div{display:flex;flex-direction:column;gap:2px;min-width:0}
+.dlghead b{font-size:17px}
+.dlghead span{color:var(--muted);font-size:13px}
+.dlgbody{padding:14px 16px 16px;display:flex;flex-direction:column;gap:12px}
+#dlgCanvas{width:100%;height:auto;border-radius:8px;background:#fff;display:block}
+.dlgstats{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px}
+@media (max-width:520px){.dlgstats{grid-template-columns:repeat(2,minmax(0,1fr))}}
+.lastpts.ghost b{color:var(--muted)}
+.lastpts.ghost small{color:var(--muted)}
 .gate canvas{width:120px;height:120px;align-self:flex-start}
 .gate h1{font-family:var(--f-display);font-stretch:75%;font-weight:700;font-size:44px;line-height:.95;text-transform:uppercase;margin:0;letter-spacing:.01em}
 .gate p{margin:0;color:var(--muted);max-width:40ch}
@@ -193,6 +222,7 @@ details[open].card summary::after{content:" –"}
 <body>
 
 <div class="gate" id="gate">
+ <div class="gatewrap">
   <div class="box">
     <canvas id="gateMark" width="240" height="240" aria-hidden="true"></canvas>
     <h1>Estande<br>Laser</h1>
@@ -206,7 +236,26 @@ details[open].card summary::after{content:" –"}
     <span class="gerr" id="gateErr" hidden></span>
     <p class="muted" id="gateNote">Verificando sua sessão…</p>
   </div>
+  <section class="feed" aria-label="Treinos da comunidade">
+    <h2>Treinos da comunidade
+      <span class="seg" role="group" aria-label="Ordem">
+        <button data-fd="recent" aria-pressed="true">Recentes</button>
+        <button data-fd="best" aria-pressed="false">Melhores</button>
+      </span>
+    </h2>
+    <p class="muted" id="feedNote">Carregando…</p>
+    <ol class="flist" id="feedList"></ol>
+  </section>
+ </div>
 </div>
+
+<dialog class="dlg" id="sessDlg" aria-labelledby="dlgTitle">
+  <div class="dlghead"><div><b id="dlgTitle"></b><span id="dlgSub"></span></div><button class="btn small" id="dlgClose">Fechar</button></div>
+  <div class="dlgbody">
+    <canvas id="dlgCanvas" width="1000" height="1000" aria-label="Alvo com os tiros do treino"></canvas>
+    <div class="dlgstats" id="dlgStats"></div>
+  </div>
+</dialog>
 
 <div class="wrap" id="app" hidden>
   <header>
@@ -333,7 +382,7 @@ details[open].card summary::after{content:" –"}
             <b id="mpi">—</b>
             <span id="plotZoom"></span>
             <span>Na tabela, J1/J2, Cabeça/Tronco e D1–D5 indicam a zona atingida.</span>
-            <span>Legenda: <b style="color:var(--hit)">A</b> antes do bip, <b style="color:var(--hit)">T</b> depois do bip final, <b style="color:var(--hit)">M</b> fora do alvo.</span>
+            <span>Tiros fora da janela de tiro aparecem em cinza por um instante e não são gravados. <b style="color:var(--hit)">M</b> indica tiro fora do alvo.</span>
           </div>
         </div>
       </section>
@@ -602,6 +651,8 @@ function drawOverlay(){
     c.setLineDash([]);
     if(cal.pts)cal.pts.forEach(q=>{const [x,y]=S2(q[0],q[1]);c.beginPath();c.arc(x,y,7,0,Math.PI*2);c.stroke()});
   }
+  const gnow=performance.now();ghosts=ghosts.filter(g=>g.until>gnow);
+  ghosts.forEach(g=>{const [x,y]=S2(g.x,g.y);c.beginPath();c.arc(x,y,10,0,Math.PI*2);c.fillStyle='rgba(160,152,138,.35)';c.fill();c.lineWidth=2;c.strokeStyle='#a39a89';c.stroke();c.beginPath();c.arc(x,y,2.2,0,Math.PI*2);c.fillStyle='#d8d1c3';c.fill()});
   calibPts.forEach(q=>{const [x,y]=S2(q[0],q[1]);c.strokeStyle='#f2a93b';c.lineWidth=2;c.beginPath();c.moveTo(x-14,y);c.lineTo(x+14,y);c.moveTo(x,y-14);c.lineTo(x,y+14);c.stroke()});
   c.font='600 12px "IBM Plex Mono",monospace';c.textBaseline='bottom';c.textAlign='left';
   shots.forEach((s,i)=>{
@@ -637,10 +688,15 @@ function shotSound(){
   const o=a.createOscillator(),og=a.createGain();o.type='sine';o.frequency.setValueAtTime(140,t);o.frequency.exponentialRampToValueAtTime(45,t+.18);
   og.gain.setValueAtTime(.8*v,t);og.gain.exponentialRampToValueAtTime(.001,t+.22);o.connect(og).connect(a.destination);o.start(t);o.stop(t+.25);
 }
+let ghosts=[],outN=0,lastGhost=null;
 function registerShot(x,y,t){
   if(sess&&sess.live)shotSound();
   if(example){shots=[];example=false}
   const a=sess?assign(t):{cyc:null,st:'livre',t:null};
+  if(a.st==='antes'||a.st==='tarde'){
+    const until=performance.now()+1600;ghosts.push({x,y,until});outN++;lastGhost={why:a.st,until};
+    render();setTimeout(render,1650);return;
+  }
   const idx=a.cyc?shots.filter(s=>s.cyc===a.cyc).length+1:0;
   const s={x,y,cyc:a.cyc,idx,st:a.st,t:a.t};scoreShot(s);shots.push(s);
   render();
@@ -658,7 +714,7 @@ async function startTraining(){
   if(sess||analyzing)return;
   if(mode==='video'){analyzeVideo();return}
   ensureAudio();if(audioCtx&&audioCtx.state==='suspended'){try{await audioCtx.resume()}catch(e){}}
-  shots=[];example=false;oscs=[];
+  shots=[];example=false;oscs=[];ghosts=[];outN=0;lastGhost=null;
   sess={n:clamp(Math.round(+S.cycles||1),1,30),dur:clamp(+S.dur||3,.5,120)*1000,cycles:[],k:0,phase:'standby',live:true,timers:[],mode,preset:S.preset,calibrated:!!getCalib()};
   try{if(navigator.wakeLock)navigator.wakeLock.request('screen').catch(()=>{})}catch(e){}
   nextCycle(true);render();
@@ -723,7 +779,9 @@ function render(){
   $('#sCount').textContent=shots.length;
   const lastT=[...shots].reverse().find(s=>s.t!=null&&s.st==='ok');$('#sLast').textContent=lastT?fmtT(lastT.t):'—';
   const ls=shots[shots.length-1],lb=$('#lastBox');
-  if(!ls){$('#lastPts').textContent='—';$('#lastTag').textContent='\u00a0';lb.classList.remove('bad')}
+  lb.classList.toggle('ghost',!!(lastGhost&&lastGhost.until>performance.now()));
+  if(lastGhost&&lastGhost.until>performance.now()){$('#lastPts').textContent='—';$('#lastTag').textContent=(lastGhost.why==='antes'?'antes do bip':'após o fim')+' · não conta';lb.classList.remove('bad')}
+  else if(!ls){$('#lastPts').textContent='—';$('#lastTag').textContent='\u00a0';lb.classList.remove('bad')}
   else{const out=ls.st==='antes'||ls.st==='tarde';
     $('#lastPts').textContent=ls.n==null?'—':ls.n===0?'M':ptsOf(ls);
     $('#lastTag').textContent=ls.st==='antes'?'antes do bip · 0':ls.st==='tarde'?'após o fim · 0':ls.n==null?'sem calibração':ls.n===0?'fora do alvo':(ls.tag&&P().zones.length>1?ls.tag:'')+(ls.t!=null&&ls.st==='ok'?(ls.tag&&P().zones.length>1?' · ':'')+fmtT(ls.t)+' s':'')||'\u00a0';
@@ -756,7 +814,7 @@ function render(){
   const st=stats(shots,S.decimal);
   $('#stTotal').textContent=st.total==null?'—':fmtPts(st.total);
   const tagTxt=P().zones.length>1&&Object.keys(st.tags).length?Object.keys(st.tags).sort().map(k=>k+' '+fmtPts(st.tags[k])).join(' · '):'';
-  $('#stTotalSub').textContent=st.okN?(tagTxt||'média '+fmtNum(st.avgPts,2)+' por tiro')+(st.bad?' · '+st.bad+' fora do tempo':''):(mode!=='sim'&&shots.length&&!getCalib()?'calibre para pontuar':' ');
+  $('#stTotalSub').textContent=st.okN?(tagTxt||'média '+fmtNum(st.avgPts,2)+' por tiro')+(outN?' · '+outN+' fora do tempo':''):(mode!=='sim'&&shots.length&&!getCalib()?'calibre para pontuar':' ');
   $('#stFirst').textContent=st.react==null?'—':fmtT(st.react);
   $('#stFirstSub').textContent=st.reactN>1?'melhor '+fmtT(st.bestReact)+' em '+st.reactN+' ciclos':'1º tiro de cada ciclo';
   $('#stSplit').textContent=st.split==null?'—':fmtT(st.split);
@@ -1014,7 +1072,7 @@ function cyclesFromBeeps(b,dur){const out=[];let i=0;while(i<b.length){const s=b
 function info(t){const c=$('#infoChip');c.hidden=!t;c.textContent=t||''}
 function analyzeVideo(){
   if(!videoReady||analyzing)return;
-  shots=[];example=false;resetRef();analyzing=true;
+  shots=[];example=false;resetRef();analyzing=true;ghosts=[];outN=0;lastGhost=null;
   const dur=clamp(+S.dur||3,.5,120)*1000,cyc=cyclesFromBeeps(videoBeeps||[],dur);
   sess={n:cyc.length,dur,cycles:cyc,k:cyc.length,phase:'running',live:false,timers:[],mode:'video',preset:S.preset,calibrated:!!getCalib()};
   vid.currentTime=0;vid.playbackRate=1;
@@ -1068,7 +1126,7 @@ $('#sensVal').textContent=S.sens;
 function sessionSummary(s){
   const st=stats(shots,false);
   return{ts:Date.now(),mode:s.mode,preset:s.preset,cycles:s.cycles.length,dur:s.dur,partial:!!s.partial,calibrated:!!s.calibrated,
-    okShots:st.okN,total:st.total||0,avg:st.avgPts,react:st.react,split:st.split,group:st.es,bad:st.bad,tags:st.tags,
+    okShots:st.okN,total:st.total||0,avg:st.avgPts,react:st.react,split:st.split,group:st.es,bad:outN,tags:st.tags,
     shots:shots.slice(0,200).map(x=>({c:x.cyc,st:x.st,t:x.t==null?null:Math.round(x.t),n:x.n,z:x.tag||null,mx:x.mx==null?null:Math.round(x.mx),my:x.my==null?null:Math.round(x.my)}))};
 }
 async function saveSession(s){
@@ -1079,6 +1137,12 @@ async function saveSession(s){
   try{
     const {db,f}=FB;
     await f.addDoc(f.collection(db,'users',user.uid,'sessions'),Object.assign({},sum,{ts:f.serverTimestamp(),tsMs:sum.ts}));
+    if(sum.mode!=='sim'&&!sum.partial&&sum.okShots>0){
+      try{await f.addDoc(f.collection(db,'feed'),{uid:user.uid,name:user.displayName||'Atirador',photo:user.photoURL||'',preset:sum.preset,mode:sum.mode,cycles:sum.cycles,dur:sum.dur,
+        okShots:sum.okShots,total:sum.total,avg:sum.avg==null?0:Math.round(sum.avg*1000)/1000,react:sum.react,split:sum.split,group:sum.group,bad:sum.bad,tags:sum.tags,
+        shots:sum.shots.filter(x=>x.st==='ok').map(x=>({c:x.c,n:x.n,z:x.z,mx:x.mx,my:x.my,t:x.t})),tsMs:sum.ts,ts:f.serverTimestamp()})}
+      catch(e){console.warn('feed',e)}
+    }
     const eligible=sum.mode!=='sim'&&sum.calibrated&&!sum.partial&&sum.okShots>=5;
     const ref=f.doc(db,'ranking',user.uid);
     await f.runTransaction(db,async tx=>{
@@ -1111,9 +1175,55 @@ function renderHist(list){
     const m=document.createElement('div');m.className='m';
     const tg=h.tags&&Object.keys(h.tags).length>1?' · '+Object.keys(h.tags).sort().map(k=>k+' '+h.tags[k]).join(' / '):'';
     m.textContent=h.cycles+' ciclos de '+fmtNum((h.dur||0)/1000,1)+' s · '+h.okShots+' tiros válidos · média '+fmtNum(h.avg,2)+tg+' · reação '+fmtT(h.react)+' s · split '+fmtT(h.split)+' s'+(h.bad?' · '+h.bad+' fora do tempo':'');
-    it.append(d,v,m);el.appendChild(it);
+    it.append(d,v,m);it.tabIndex=0;it.setAttribute('role','button');
+    it.addEventListener('click',()=>openSession(h,user));it.addEventListener('keydown',e=>{if(e.key==='Enter')openSession(h,user)});
+    el.appendChild(it);
   });
 }
+/* ---------- treinos da comunidade (tela de entrada) e detalhe do treino ---------- */
+let feedKind='recent';
+async function loadFeed(){
+  const note=$('#feedNote'),ol=$('#feedList');
+  if(!FB){note.textContent='Os treinos aparecem aqui quando o login estiver configurado.';return}
+  note.textContent='Carregando…';
+  try{
+    const {db,f}=FB;const q=f.query(f.collection(db,'feed'),f.orderBy(feedKind==='best'?'avg':'tsMs','desc'),f.limit(20));
+    const snap=await f.getDocs(q);ol.innerHTML='';
+    if(snap.empty){note.textContent='Nenhum treino publicado ainda. Os treinos com câmera ou vídeo aparecem aqui assim que terminam.';return}
+    note.textContent=feedKind==='best'?'Melhores médias de pontos por tiro. Toque em um treino para ver o alvo.':'Últimos treinos concluídos. Toque em um treino para ver o alvo.';
+    let i=0;snap.forEach(d=>{i++;const x=d.data(),li=document.createElement('li'),b=document.createElement('button');b.className='fitem';
+      const pos=document.createElement('span');pos.className='pos';pos.textContent=feedKind==='best'?i+'º':'';
+      const w=document.createElement('span');w.className='who2';const nb=document.createElement('b');nb.textContent=x.name||'Atirador';
+      const sm=document.createElement('small');sm.textContent=((PRESETS[x.preset]||{}).label||'')+' · '+x.okShots+' tiros · '+relDate(x.tsMs);w.append(nb,sm);
+      const sc=document.createElement('span');sc.className='sc';const pb=document.createElement('b');pb.textContent=x.total+' pts';const ab=document.createElement('small');ab.textContent='média '+fmtNum(x.avg,2);sc.append(pb,ab);
+      b.append(pos,avatar(x.name,x.photo),w,sc);b.addEventListener('click',()=>openSession(x,x));li.appendChild(b);ol.appendChild(li)});
+  }catch(e){console.warn(e);ol.innerHTML='';note.textContent=e&&e.code==='permission-denied'?'Os treinos da comunidade ainda não estão liberados para leitura pública (regras do Firestore).':'Não foi possível carregar os treinos ('+(e.code||'erro')+').'}
+}
+function relDate(ms){if(!ms)return'';const d=(Date.now()-ms)/1000;if(d<3600)return Math.max(1,Math.round(d/60))+' min atrás';if(d<86400)return Math.round(d/3600)+' h atrás';
+  return new Date(ms).toLocaleDateString('pt-BR',{day:'2-digit',month:'2-digit'})}
+document.querySelectorAll('[data-fd]').forEach(b=>b.addEventListener('click',()=>{feedKind=b.dataset.fd;document.querySelectorAll('[data-fd]').forEach(x=>x.setAttribute('aria-pressed',String(x===b)));loadFeed()}));
+function drawSessionTarget(cv,presetKey,list){
+  const p=PRESETS[presetKey]||PRESETS.bullseye,im=IMG[presetKey]||IMG.bullseye,b=presetBox(p),m=70,bx=[b[0]-m,b[1]-m,b[2]+m,b[3]+m],bw=bx[2]-bx[0],bh=bx[3]-bx[1];
+  const W=1000,H=Math.round(W*bh/bw);cv.width=W;cv.height=H;const k=W/bw,c=cv.getContext('2d');
+  c.fillStyle='#fff';c.fillRect(0,0,W,H);
+  const paint=()=>{c.fillStyle='#fff';c.fillRect(0,0,W,H);if(im.complete&&im.naturalWidth)c.drawImage(im,-bx[0]*k,-bx[1]*k,PAGE.w*k,PAGE.h*k);
+    c.font='600 22px "IBM Plex Mono",monospace';c.textAlign='center';c.textBaseline='middle';
+    list.forEach((s,i)=>{if(s.mx==null)return;const x=(s.mx-bx[0])*k,y=(s.my-bx[1])*k;c.beginPath();c.arc(x,y,16,0,Math.PI*2);c.fillStyle=s.n===0?'#7b746a':'#ff3b2f';c.fill();c.lineWidth=3;c.strokeStyle='#fff';c.stroke();c.fillStyle='#fff';c.fillText(String(i+1),x,y+1)})};
+  paint();if(!(im.complete&&im.naturalWidth))im.addEventListener('load',paint,{once:true});
+}
+function openSession(h,who){
+  const dlg=$('#sessDlg'),key=h.preset==='itarget'?'bullseye':h.preset,list=(h.shots||[]).filter(s=>!s.st||s.st==='ok'||s.st==='livre');
+  $('#dlgTitle').textContent=(who&&(who.name||who.displayName))||'Treino';
+  $('#dlgSub').textContent=((PRESETS[key]||{}).label||'')+' · '+(MODE_LBL[h.mode]||'')+' · '+new Date(h.tsMs||h.ts).toLocaleString('pt-BR',{day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'})+' · '+h.cycles+' ciclos de '+fmtNum((h.dur||0)/1000,1)+' s';
+  drawSessionTarget($('#dlgCanvas'),key,list);
+  const st=$('#dlgStats');st.innerHTML='';
+  const tg=h.tags&&Object.keys(h.tags).length>1?Object.keys(h.tags).sort().map(k=>k+' '+h.tags[k]).join(' · '):'média '+fmtNum(h.avg,2)+' por tiro';
+  [['Pontos',h.total!=null?String(h.total):'—',tg],['Reação média',fmtT(h.react),'1º tiro de cada ciclo'],['Split médio',fmtT(h.split),'entre tiros'],['Agrupamento',h.group==null?'—':fmtNum(h.group,0)+' mm',h.okShots+' tiros válidos'+(h.bad?' · '+h.bad+' fora do tempo':'')]].forEach(([a,b,c])=>{
+    const d=document.createElement('div');d.className='stat';const s1=document.createElement('span');s1.textContent=a;const s2=document.createElement('b');s2.textContent=b;const s3=document.createElement('small');s3.textContent=c;d.append(s1,s2,s3);st.appendChild(d)});
+  if(dlg.showModal)dlg.showModal();else dlg.setAttribute('open','');
+}
+$('#dlgClose').addEventListener('click',()=>$('#sessDlg').close());
+$('#sessDlg').addEventListener('click',e=>{if(e.target===e.currentTarget)e.currentTarget.close()});
 const RK={avg:{field:()=>'avg_'+S.preset,dir:'desc',fmt:v=>fmtNum(v,2)+' pts/tiro',desc:()=>'Melhor média de pontos por tiro num treino com 5 ou mais tiros válidos, no alvo '+P().label+'.'},
   rt:{field:()=>'rt',dir:'asc',fmt:v=>fmtT(v)+' s',desc:()=>'Melhor reação média ao bip num treino com 3 ou mais ciclos, em qualquer alvo.'},
   shots:{field:()=>'shots',dir:'desc',fmt:v=>v+' tiros',desc:()=>'Total de tiros válidos registrados com câmera ou vídeo.'}};
@@ -1150,10 +1260,11 @@ function enterApp(u){
   $('#whoName').textContent=(u.displayName||u.email||'').split(' ')[0];
   fitStage();render();loadRanking();loadHist();
 }
-function leaveApp(){user=null;if(sess)stopTraining();if(camOn)stopCamera();$('#app').hidden=true;$('#gate').hidden=false;$('#loginBtn').disabled=!FB;gateMsg(FB?'Use sua conta Google para entrar. Seu nome e foto aparecem no ranking.':'')}
+function leaveApp(){if(user)setTimeout(loadFeed,300);user=null;if(sess)stopTraining();if(camOn)stopCamera();$('#app').hidden=true;$('#gate').hidden=false;$('#loginBtn').disabled=!FB;gateMsg(FB?'Use sua conta Google para entrar. Seu nome e foto aparecem no ranking.':'')}
 async function initAuth(){
   drawGateMark();
   if(window.__EL_TEST_USER){FB=null;enterApp(window.__EL_TEST_USER);return}
+  if(window.__EL_TEST_FEED){FB={db:0,f:window.__EL_TEST_FEED};loadFeed();FB=null}
   if(!FIREBASE_CONFIG.apiKey){gateMsg('O login ainda não foi configurado neste site. Falta preencher os dados do projeto Firebase.',true);return}
   try{
     const base='https://www.gstatic.com/firebasejs/'+FB_VER+'/';
@@ -1162,6 +1273,7 @@ async function initAuth(){
     FB={au,db,f:fs,auth};
     $('#loginBtn').disabled=false;gateMsg('Use sua conta Google para entrar. Seu nome e foto aparecem no ranking.');
     auth.onAuthStateChanged(au,u=>{if(u)enterApp(u);else leaveApp()});
+    loadFeed();
   }catch(e){console.warn(e);gateMsg('Não foi possível carregar o login. Verifique a conexão e recarregue a página.',true)}
 }
 $('#loginBtn').addEventListener('click',async()=>{
