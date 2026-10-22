@@ -2,7 +2,8 @@
 
 Treino de tiro a seco com laser. A câmera do celular encontra o ponto vermelho no alvo, pontua cada tiro pelos anéis e mede o tempo de cada disparo a partir do bip.
 
-**Usar:** https://perissatto.github.io/estande-laser/ (entrar com a conta Google)
+**Site:** https://perissatto.github.io/estande-laser/ (página de apresentação)
+**Plataforma:** https://perissatto.github.io/estande-laser/app.html (entrar com a conta Google)
 
 - Ciclos configuráveis (quantidade e segundos), com bip de início e dois bips curtos no fim; tiros antes do bip (A) ou depois do fim (T) não pontuam.
 - 4 alvos para imprimir (pasta `alvos/`): BullsEye, Quick Draw (cabeça e tronco), Duelo (J1 × J2) e High Score (5 discos). Os PDFs podem ser baixados direto no site.
