@@ -244,14 +244,6 @@ details[open].card summary::after{content:" –"}
         <button class="btn" id="clearBtn">Limpar</button>
       </div>
 
-      <div class="targets" role="group" aria-label="Alvo">
-        <button class="tgt" data-t="bullseye" aria-pressed="true"><img src="alvos/bullseye.png" alt=""><b>BullsEye</b><small>Anéis 4 a 10</small></button>
-        <button class="tgt" data-t="quickdraw" aria-pressed="false"><img src="alvos/quickdraw.png" alt=""><b>Quick Draw</b><small>Cabeça e tronco</small></button>
-        <button class="tgt" data-t="duel" aria-pressed="false"><img src="alvos/duel.png" alt=""><b>Duelo</b><small>J1 × J2</small></button>
-        <button class="tgt" data-t="highscore" aria-pressed="false"><img src="alvos/highscore.png" alt=""><b>High Score</b><small>5 discos</small></button>
-      </div>
-      <div class="pdfrow"><a class="btn small" id="pdfLink" href="alvos/estande-laser-bullseye.pdf" download>Baixar PDF</a><span>Imprima em papel Carta ou A4, em tamanho real, sem cortar os triângulos.</span></div>
-
       <div class="cyclecfg">
         <label>Ciclos<input type="number" id="s-cycles" data-k="cycles" min="1" max="30" step="1" inputmode="numeric"></label>
         <label>Segundos por ciclo<input type="number" id="s-dur" data-k="dur" min="0.5" max="120" step="0.5" inputmode="decimal"></label>
@@ -283,7 +275,15 @@ details[open].card summary::after{content:" –"}
         <small id="zoomKind"></small>
       </div>
 
+      <div class="targets" role="group" aria-label="Alvo">
+        <button class="tgt" data-t="bullseye" aria-pressed="true"><img src="alvos/bullseye.png" alt=""><b>BullsEye</b><small>Anéis 4 a 10</small></button>
+        <button class="tgt" data-t="quickdraw" aria-pressed="false"><img src="alvos/quickdraw.png" alt=""><b>Quick Draw</b><small>Cabeça e tronco</small></button>
+        <button class="tgt" data-t="duel" aria-pressed="false"><img src="alvos/duel.png" alt=""><b>Duelo</b><small>J1 × J2</small></button>
+        <button class="tgt" data-t="highscore" aria-pressed="false"><img src="alvos/highscore.png" alt=""><b>High Score</b><small>5 discos</small></button>
+      </div>
+      <div class="pdfrow"><a class="btn small" id="pdfLink" href="alvos/estande-laser-bullseye.pdf" download>Baixar PDF</a><span>Imprima em papel Carta ou A4, em tamanho real, sem cortar os triângulos.</span></div>
       <div class="calrow">
+        <button class="btn" id="camBtn">Ativar câmera</button>
         <button class="btn" id="calibBtn">Calibrar alvo</button>
       </div>
 
@@ -298,7 +298,6 @@ details[open].card summary::after{content:" –"}
 
       <div class="note" id="camNote">
         <span>Prenda o celular num tripé com o alvo inteiro na imagem, incluindo os 4 triângulos. Use o zoom para aproximar e depois toque em <b>Calibrar alvo</b>.</span>
-        <div class="row"><button class="btn" id="camBtn">Ativar câmera</button></div>
         <span id="camErr" hidden></span>
       </div>
 
@@ -1035,7 +1034,7 @@ function setMode(m){
   document.querySelectorAll('.tabs button').forEach(b=>b.setAttribute('aria-selected',String(b.dataset.mode===m)));
   sim.hidden=m!=='sim';vid.hidden=m==='sim';
   $('#simNote').hidden=m!=='sim';$('#camNote').hidden=m!=='camera';$('#vidNote').hidden=m!=='video';
-  $('#calibBtn').hidden=m==='sim';$('#detChip').hidden=true;$('#zoomRow').hidden=true;
+  $('#calibBtn').hidden=m==='sim';$('#camBtn').hidden=m!=='camera';$('#detChip').hidden=true;$('#zoomRow').hidden=true;
   if(m==='camera'){vid.removeAttribute('src');showEmpty('Toque em Ativar câmera para ver o alvo.')}
   else if(m==='video'){if(videoReady){$('#empty').hidden=true;setupZoom();info(videoBeeps&&videoBeeps.length?videoBeeps.length+' bips no áudio':'')}else{vid.srcObject=null;showEmpty('Escolha um vídeo do treino gravado.')}}
   else{$('#empty').hidden=true;drawSim();seedExample()}
